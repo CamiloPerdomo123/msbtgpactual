@@ -13,6 +13,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 
 import java.util.List;
 import java.util.Optional;
@@ -54,8 +55,8 @@ class ClienteServiceTest {
         clienteEntity.setId("1");
         clienteEntity.setNombre("Juan");
 
-        when(clienteRepository.findByCedula("123"))
-                .thenReturn(Optional.empty());
+        when(clienteRepository.existsByCedula("123"))
+                .thenReturn(false);
 
         when(clienteApplicationMapper.toModel(request))
                 .thenReturn(cliente);
@@ -72,26 +73,24 @@ class ClienteServiceTest {
         assertEquals("1", response.idCliente());
         assertEquals("Juan", response.nombre());
 
-        verify(clienteRepository).findByCedula("123");
+        verify(clienteRepository).existsByCedula("123");
         verify(clienteRepository).save(clienteEntity);
     }
 
     @Test
     void deberiaLanzarExcepcionSiClienteExiste() {
 
-        ClienteRequestDto request = new ClienteRequestDto("123", "Juan", "", "");
+        ClienteRequestDto request = new ClienteRequestDto("123", "Juan", "Email", "jperdomo@gmail.com");
 
-        Cliente cliente = new Cliente();
-        cliente.setId("1");
+        when(clienteRepository.existsByCedula("123"))
+                .thenReturn(true);
 
-        when(clienteRepository.findByCedula("123"))
-                .thenReturn(Optional.of(cliente));
+        ApplicationException exception = assertThrows(ApplicationException.class,
+                () -> clienteService.crearCliente(request));
 
-        assertThrows(ApplicationException.class, () -> {
-            clienteService.crearCliente(request);
-        });
+        assertEquals(HttpStatus.CONFLICT, exception.getHttpStatus());
 
-        verify(clienteRepository).findByCedula("123");
+        verify(clienteRepository).existsByCedula("123");
         verify(clienteRepository, never()).save(any());
     }
 }
