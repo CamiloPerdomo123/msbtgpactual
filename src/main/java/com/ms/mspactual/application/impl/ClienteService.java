@@ -12,8 +12,8 @@ import com.ms.mspactual.infrastructure.repository.persistencia.ClienteRepository
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -24,27 +24,31 @@ public class ClienteService implements IClienteService {
     private final ClientePersistenceMapper clientePersistenceMapper;
 
     @Override
+    @Transactional
     public ClienteResponse crearCliente(ClienteRequestDto clienteRequestDto) {
 
-        Optional<Cliente> clienteExistente = clienteRepository.findByCedula(clienteRequestDto.cedula());
+        this.validarCliente(clienteRequestDto);
 
-        if(clienteExistente.isPresent()){
+        ClienteModels clienteModel = clienteApplicationMapper.toModel(clienteRequestDto);
+
+        Cliente clienteEntity = clientePersistenceMapper.toEntity(clienteModel);
+
+        Cliente clienteGuardado = clienteRepository.save(clienteEntity);
+
+        return new ClienteResponse(
+                clienteGuardado.getId(),
+                clienteGuardado.getNombre()
+        );
+    }
+
+    private void validarCliente(ClienteRequestDto clienteRequestDto) {
+        if (clienteRepository.existsByCedula(clienteRequestDto.cedula())) {
             throw new ApplicationException(
                     ErrorEnumsApplication.EXISTE_CLIENTE.getMensaje(),
                     ErrorEnumsApplication.EXISTE_CLIENTE.getCodigo(),
                     HttpStatus.CONFLICT
             );
         }
-
-        ClienteModels clienteModel = clienteApplicationMapper.toModel(clienteRequestDto);
-
-        Cliente cliente = clientePersistenceMapper.toEntity(clienteModel);
-
-        clienteRepository.save(cliente);
-
-        return new ClienteResponse(
-                cliente.getId(),
-                cliente.getNombre()
-        );
     }
 }
+
